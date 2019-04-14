@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log"
 	"net/http"
 	"strings"
 )
@@ -26,6 +27,7 @@ func (c *Config) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Checks for user permissions relatively to this PATH.
 	if !u.Allowed(r.URL.Path) {
 		http.Error(w, "Not authorized", http.StatusForbidden)
+		log.Println("User not authorized for path", username)
 		return
 	}
 

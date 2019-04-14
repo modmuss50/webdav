@@ -113,9 +113,6 @@ type cfg struct {
 	webdav  *Config
 	address string
 	port    string
-	tls     bool
-	cert    string
-	key     string
 	auth    map[string]string
 }
 
@@ -156,9 +153,6 @@ func parseConfig() *cfg {
 	config := &cfg{
 		address: data.Address,
 		port:    data.Port,
-		tls:     data.TLS,
-		cert:    data.Cert,
-		key:     data.Key,
 		auth:    map[string]string{},
 		webdav: &Config{
 			User: &User{
@@ -189,12 +183,14 @@ func basicAuth(c *cfg) http.Handler {
 		username, password, authOK := r.BasicAuth()
 		if authOK == false {
 			http.Error(w, "Not authorized", 401)
+			log.Println("Not authorized")
 			return
 		}
 
 		p, ok := c.auth[username]
 		if !ok {
 			http.Error(w, "Not authorized", 401)
+			log.Println("Could not find user", username)
 			return
 		}
 
@@ -218,6 +214,13 @@ func checkPassword(saved, input string) bool {
 	return saved == input
 }
 
+func logRequest(handler http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		log.Printf("%s %s %s\n", r.RemoteAddr, r.Method, r.URL)
+		handler.ServeHTTP(w, r)
+	})
+}
+
 func main() {
 	flag.Parse()
 	cfg := parseConfig()
@@ -234,14 +237,8 @@ func main() {
 	fmt.Println("Listening on", listener.Addr().String())
 
 	// Starts the server.
-	if cfg.tls {
-		if err := http.ServeTLS(listener, handler, cfg.cert, cfg.key); err != nil {
-			log.Fatal(err)
-		}
-	} else {
-		if err := http.Serve(listener, handler); err != nil {
-			log.Fatal(err)
-		}
-
+	if err := http.Serve(listener, logRequest(handler)); err != nil {
+		log.Fatal(err)
 	}
+
 }
