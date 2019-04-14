@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 echo 'Updating libs'
-go get -u
+go get -u modmuss50/webdav
 
 rm -rf output
 mkdir output
