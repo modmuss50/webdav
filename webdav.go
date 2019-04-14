@@ -1,12 +1,8 @@
 package webdav
 
 import (
-	"context"
 	"net/http"
-	"regexp"
 	"strings"
-
-	"golang.org/x/net/webdav"
 )
 
 // Config is the configuration of a WebDAV instance.
@@ -29,7 +25,7 @@ func (c *Config) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// Checks for user permissions relatively to this PATH.
 	if !u.Allowed(r.URL.Path) {
-		w.WriteHeader(http.StatusForbidden)
+		http.Error(w, "Not authorized", http.StatusForbidden)
 		return
 	}
 
@@ -42,42 +38,23 @@ func (c *Config) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if (r.Method == "PUT" || r.Method == "POST" || r.Method == "MKCOL" ||
 		r.Method == "DELETE" || r.Method == "COPY" || r.Method == "MOVE") &&
 		!u.Modify {
-		w.WriteHeader(http.StatusForbidden)
+		http.Error(w, "Not authorized", http.StatusForbidden)
 		return
 	}
 
-	// Excerpt from RFC4918, section 9.4:
-	//
-	// 		GET, when applied to a collection, may return the contents of an
-	//		"index.html" resource, a human-readable view of the contents of
-	//		the collection, or something else altogether.
-	//
-	// Get, when applied to collection, will return the same as PROPFIND method.
-	if r.Method == "GET" {
-		info, err := u.Handler.FileSystem.Stat(context.TODO(), r.URL.Path)
-		if err == nil && info.IsDir() {
-			r.Method = "PROPFIND"
-		}
-	}
-
-	// Runs the WebDAV.
-	u.Handler.ServeHTTP(w, r)
+	c.HandleRequest(w, r)
 }
 
 // Rule is a dissalow/allow rule.
 type Rule struct {
-	Regex  bool
-	Allow  bool
-	Path   string
-	Regexp *regexp.Regexp
+	Path string
 }
 
 // User contains the settings of each user.
 type User struct {
-	Scope   string
-	Modify  bool
-	Rules   []*Rule
-	Handler *webdav.Handler
+	Scope  string
+	Modify bool
+	Rules  []*Rule
 }
 
 // Allowed checks if the user has permission to access a directory/file
@@ -88,18 +65,14 @@ func (u User) Allowed(url string) bool {
 	for i >= 0 {
 		rule = u.Rules[i]
 
-		if rule.Regex {
-			if rule.Regexp.MatchString(url) {
-				return rule.Allow
-			}
-		} else if strings.HasPrefix(url, rule.Path) {
-			return rule.Allow
+		if strings.HasPrefix(url, rule.Path) {
+			return true
 		}
 
 		i--
 	}
 
-	return true
+	return false
 }
 
 // responseWriterNoBody is a wrapper used to suprress the body of the response

@@ -10,13 +10,11 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 
-	"github.com/hacdias/webdav"
+	"github.com/modmuss50/webdav"
 	"golang.org/x/crypto/bcrypt"
-	wd "golang.org/x/net/webdav"
-	yaml "gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v2"
 )
 
 var (
@@ -35,37 +33,20 @@ func init() {
 	flag.StringVar(&config, "config", "", "Configuration file")
 }
 
-func parseRules(raw []map[string]interface{}) []*webdav.Rule {
+func parseRules(raw map[string]interface{}) []*webdav.Rule {
 	rules := []*webdav.Rule{}
 
-	for _, r := range raw {
-		rule := &webdav.Rule{
-			Regex: false,
-			Allow: false,
-			Path:  "",
-		}
-
-		if regex, ok := r["regex"].(bool); ok {
-			rule.Regex = regex
-		}
-
-		if allow, ok := r["allow"].(bool); ok {
-			rule.Allow = allow
-		}
-
-		path, ok := r["rule"].(string)
-		if !ok {
-			continue
-		}
-
-		if rule.Regex {
-			rule.Regexp = regexp.MustCompile(path)
-		} else {
-			rule.Path = path
-		}
-
-		rules = append(rules, rule)
+	rule := &webdav.Rule{
+		Path: "",
 	}
+
+	path, ok := raw["path"].(string)
+	if !ok {
+		panic("failed to read path")
+	}
+	rule.Path = path
+
+	rules = append(rules, rule)
 
 	return rules
 }
@@ -98,13 +79,13 @@ func parseUsers(raw []map[string]interface{}, c *cfg) {
 			user.Modify = modify
 		}
 
-		if rules, ok := r["rules"].([]map[string]interface{}); ok {
-			user.Rules = parseRules(rules)
-		}
+		rules := r["rules"].(map[string]interface{})
 
-		user.Handler = &wd.Handler{
-			FileSystem: wd.Dir(user.Scope),
-			LockSystem: wd.NewMemLS(),
+		fmt.Println(rules)
+
+		if rules, ok := r["rules"].(map[string]interface{}); ok {
+			fmt.Println(rules)
+			user.Rules = parseRules(rules)
 		}
 
 		c.webdav.Users[username] = user
@@ -155,7 +136,7 @@ func parseConfig() *cfg {
 		Key     string                   `json:"key" yaml:"key"`
 		Scope   string                   `json:"scope" yaml:"scope"`
 		Modify  bool                     `json:"modify" yaml:"modify"`
-		Rules   []map[string]interface{} `json:"rules" yaml:"rules"`
+		Rules   map[string]interface{}   `json:"rules" yaml:"rules"`
 		Users   []map[string]interface{} `json:"users" yaml:"users"`
 	}{
 		Address: "0.0.0.0",
@@ -190,10 +171,6 @@ func parseConfig() *cfg {
 				Scope:  data.Scope,
 				Modify: data.Modify,
 				Rules:  []*webdav.Rule{},
-				Handler: &wd.Handler{
-					FileSystem: wd.Dir(data.Scope),
-					LockSystem: wd.NewMemLS(),
-				},
 			},
 			Users: map[string]*webdav.User{},
 		},
