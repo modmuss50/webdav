@@ -12,7 +12,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/modmuss50/webdav"
 	"golang.org/x/crypto/bcrypt"
 	"gopkg.in/yaml.v2"
 )
@@ -33,10 +32,10 @@ func init() {
 	flag.StringVar(&config, "config", "", "Configuration file")
 }
 
-func parseRules(raw map[string]interface{}) []*webdav.Rule {
-	rules := []*webdav.Rule{}
+func parseRules(raw map[string]interface{}) []*Rule {
+	rules := []*Rule{}
 
-	rule := &webdav.Rule{
+	rule := &Rule{
 		Path: "",
 	}
 
@@ -65,7 +64,7 @@ func parseUsers(raw []map[string]interface{}, c *cfg) {
 
 		c.auth[username] = password
 
-		user := &webdav.User{
+		user := &User{
 			Scope:  c.webdav.User.Scope,
 			Modify: c.webdav.User.Modify,
 			Rules:  c.webdav.User.Rules,
@@ -79,12 +78,7 @@ func parseUsers(raw []map[string]interface{}, c *cfg) {
 			user.Modify = modify
 		}
 
-		rules := r["rules"].(map[string]interface{})
-
-		fmt.Println(rules)
-
 		if rules, ok := r["rules"].(map[string]interface{}); ok {
-			fmt.Println(rules)
 			user.Rules = parseRules(rules)
 		}
 
@@ -116,7 +110,7 @@ func getConfig() []byte {
 }
 
 type cfg struct {
-	webdav  *webdav.Config
+	webdav  *Config
 	address string
 	port    string
 	tls     bool
@@ -166,13 +160,13 @@ func parseConfig() *cfg {
 		cert:    data.Cert,
 		key:     data.Key,
 		auth:    map[string]string{},
-		webdav: &webdav.Config{
-			User: &webdav.User{
+		webdav: &Config{
+			User: &User{
 				Scope:  data.Scope,
 				Modify: data.Modify,
-				Rules:  []*webdav.Rule{},
+				Rules:  []*Rule{},
 			},
-			Users: map[string]*webdav.User{},
+			Users: map[string]*User{},
 		},
 	}
 
